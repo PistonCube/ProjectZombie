@@ -44,7 +44,7 @@ hover_sound = click_sound  # Se reutiliza el sonido click para el hover
 # Fuentes
 font = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 30)
 font_large = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 50)
-font_xlarge = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 70)  # Fuente extra grande para la pantalla de muerte
+font_xlarge = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 70)
 font_small = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 15)
 
 # Archivo game_data.json para guardar high score y configuración.
@@ -139,7 +139,7 @@ def draw_button(text, x, y, width=200, height=50, is_hovered=False, is_clicked=F
     screen.blit(label, (x + (width - label.get_width()) // 2, y + (height - label.get_height()) // 2))
     return button_rect
 
-# Función para ciclar la dificultad (tipo Minecraft)
+# Función para ciclar la dificultad
 def cycle_difficulty():
     global difficulty
     if difficulty == "easy":
@@ -150,16 +150,15 @@ def cycle_difficulty():
         difficulty = "easy"
     adjust_difficulty()
 
-# MENÚ PRINCIPAL (Minecraft Style con Estadísticas y sin Dificultad)
+# MENÚ PRINCIPAL
 
 def show_main_menu():
-    """Muestra el menú principal estilo Minecraft con Estadísticas."""
     global last_hovered_index
     menu_running = True
     last_hovered_index = None
     buttons = [
         {"text": "Jugar", "action": lambda: "game"},
-        {"text": "Estadísticas", "action": lambda: "stats"},  # Botón de Estadísticas
+        {"text": "Estadísticas", "action": lambda: "stats"},
         {"text": "Configuración", "action": lambda: "config"},
         {"text": "Salir", "action": lambda: sys.exit()}
     ]
@@ -179,7 +178,6 @@ def show_main_menu():
         mouse_pressed = pygame.mouse.get_pressed()[0]
         button_rects = []
 
-        # Minecraft style button layout (centered column)
         start_y = screen_height // 2 - (len(buttons) * 60) // 2  # Center vertically
         for i, btn in enumerate(buttons):
             btn_x = screen_width // 2 - 100  # Centered
@@ -214,7 +212,7 @@ def show_main_menu():
 
         pygame.time.Clock().tick(60)
 
-# MENÚ DE JUGAR (con Dificultad)
+# MENÚ DE JUGAR
 
 def show_game_menu():
     """Submenú de 'Jugar' con Dificultad."""
@@ -222,14 +220,14 @@ def show_game_menu():
     global last_hovered_index, difficulty
     last_hovered_index = None
     
-    # Elimina la definición inicial de buttons aquí
 
-    start_x = screen_width // 2 - 100  # Centrado
-    start_y = screen_height // 2 - (3 * 60) // 2  # Centrado verticalmente (3 botones)
+
+    start_x = screen_width // 2 - 100  
+    start_y = screen_height // 2 - (3 * 60) // 2  
     spacing = 60
 
     while game_running:
-        # Mueve la definición de buttons DENTRO del bucle
+
         buttons = [
             {"text": "Iniciar", "action": lambda: "start"},
             {"text": f"Dificultad: {difficulty.capitalize()}", "action": cycle_difficulty},
@@ -240,7 +238,6 @@ def show_game_menu():
         title = font_large.render("Jugar", True, (255, 255, 255))
         screen.blit(title, (screen_width // 2 - title.get_width() // 2, 100))
 
-        # Credits and version
         credit_text = font_small.render("Créditos: PistonCube", True, (255, 255, 255))
         version_text = font_small.render("Version: V1.2 BETA", True, (255, 255, 255))
         screen.blit(credit_text, (10, screen_height - 20))
@@ -283,7 +280,7 @@ def show_statistics_screen():
         screen.blit(background_menu_image, (0, 0))
         title = font_large.render("Estadísticas", True, (255, 255, 255))
         screen.blit(title, (screen_width//2 - title.get_width()//2, 100))
-        # Mostrar el High Score (puedes agregar más estadísticas si lo deseas)
+
         high_score_text = font.render("High Score: " + str(game_data.get("high_score", 0)), True, (255, 255, 255))
         screen.blit(high_score_text, (screen_width//2 - high_score_text.get_width()//2, 250))
         back_text = font.render("Pulsa cualquier tecla para volver", True, (255, 255, 255))
@@ -395,7 +392,6 @@ def pause_menu_buttons():
     ]
 
 def pause_menu():
-    """Muestra el menú de pausa con el fondo del mapa y superposición negra semitransparente."""
     global last_hovered_index
     pause_running = True
     buttons = pause_menu_buttons()
@@ -458,7 +454,6 @@ def draw_health_bar(x, y, health, max_health):
 # PANTALLA DE MUERTE
 
 def show_dead_screen():
-    """Muestra una pantalla de muerte estilizada con fondo del mapa, overlay rojo semitransparente y mensaje en grande."""
     dead_running = True
     clock = pygame.time.Clock()
     fade = 0  # Valor inicial para el efecto de fundido
@@ -507,7 +502,6 @@ def show_dead_screen():
 # BUCLE PRINCIPAL DEL JUEGO
 
 def main():
-    """Bucle principal del juego."""
     global player_x, player_y, bullets, enemies, player_health, score
     clock = pygame.time.Clock()
     spawn_enemy_timer = 0
@@ -629,9 +623,9 @@ if __name__ == "__main__":
             game_data["has_seen_story"] = True
             save_game_data(game_data)
         show_story()
-    while True:  # Main game loop
+    while True:
         action = show_main_menu()
         if action == "start":
             result = main()
             if result in ("main_menu", "retry"):
-                continue  # Go back to main menu or retry
+                continue
