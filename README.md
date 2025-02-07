@@ -46,7 +46,3 @@ Esta es la versión **Beta v1.2**. Se seguirán agregando nuevas mecánicas, ene
 - **Email**: [admin@pistoncube.com.ar](mailto:admin@pistoncube.com.ar)
 
 ¡Gracias por jugar a **Project Zombie**! 🧟‍♂️🔫
-
----
-
-Espero que esta versión te guste. He organizado las secciones y mejorado la claridad y fluidez del texto. Si necesitas más cambios, ¡dímelo!
