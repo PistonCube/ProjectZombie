@@ -3,6 +3,7 @@ import random
 import os
 import json
 import time
+import sys  # Importar sys para sys.exit()
 
 pygame.init()
 
@@ -41,10 +42,10 @@ click_sound = pygame.mixer.Sound(os.path.join(BASE_DIR, "assets/sounds", "click.
 hover_sound = click_sound  # Se reutiliza el sonido click para el hover
 
 # Fuentes
-font = pygame.font.SysFont('Arial', 30)
-font_large = pygame.font.SysFont('Arial', 50)
-font_xlarge = pygame.font.SysFont('Arial', 70)  # Fuente extra grande para la pantalla de muerte
-font_small = pygame.font.SysFont('Arial', 15)
+font = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 30)
+font_large = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 50)
+font_xlarge = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 70)  # Fuente extra grande para la pantalla de muerte
+font_small = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 15)
 
 # Archivo game_data.json para guardar high score y configuración.
 game_data_path = os.path.join(BASE_DIR, "game_data.json")
@@ -52,7 +53,7 @@ def load_game_data():
     if os.path.exists(game_data_path):
         with open(game_data_path, "r") as file:
             return json.load(file)
-    return {"high_score": 0, "music_volume": 0.5, "has_seen_story": False}
+    return {"high_score": 0, "music_volume": 0.5, "sfx_volume": 0.5, "has_seen_story": False}
 
 def save_game_data(data):
     with open(game_data_path, "w") as file:
@@ -62,13 +63,24 @@ game_data = load_game_data()
 
 # Configuración de sonido
 music_volume = game_data.get("music_volume", 0.5)
+sfx_volume = game_data.get("sfx_volume", 0.5)
 pygame.mixer.music.set_volume(music_volume)
+shoot_sound.set_volume(sfx_volume)
+click_sound.set_volume(sfx_volume)
 
 def set_music_volume(vol):
     global music_volume, game_data
     music_volume = max(0, min(1, vol))
     pygame.mixer.music.set_volume(music_volume)
     game_data["music_volume"] = music_volume
+    save_game_data(game_data)
+
+def set_sfx_volume(vol):
+    global sfx_volume, game_data
+    sfx_volume = max(0, min(1, vol))
+    shoot_sound.set_volume(sfx_volume)
+    click_sound.set_volume(sfx_volume)
+    game_data["sfx_volume"] = sfx_volume
     save_game_data(game_data)
 
 # Variables del jugador
@@ -88,7 +100,7 @@ enemy_spawn_rate = 50
 enemies = []  # Lista global de enemigos
 
 # Dificultad: (velocidad de enemigo, frecuencia de spawn)
-difficulty_levels = {"easy": (1, 60), "medium": (2, 50), "hard": (3, 40)}
+difficulty_levels = {"easy": (1, 60), "medium": (2, 50), "hard": (5, 20)}
 difficulty = "medium"
 
 # Score
@@ -138,48 +150,40 @@ def cycle_difficulty():
         difficulty = "easy"
     adjust_difficulty()
 
-# MENÚ PRINCIPAL
-
-def main_menu_buttons():
-    """Devuelve la lista de botones del menú principal:
-       - Jugar
-       - Dificultad (un solo botón que cambia entre Fácil, Medio y Difícil)
-       - Configuración
-    """
-    return [
-        {"text": "Jugar", "action": lambda: "jugar"},
-        {"text": f"Dificultad: {difficulty.capitalize()}", "action": cycle_difficulty},
-        {"text": "Configuración", "action": lambda: "config"}
-    ]
+# MENÚ PRINCIPAL (Minecraft Style con Estadísticas y sin Dificultad)
 
 def show_main_menu():
-    """Muestra el menú principal con botones animados."""
+    """Muestra el menú principal estilo Minecraft con Estadísticas."""
     global last_hovered_index
     menu_running = True
     last_hovered_index = None
+    buttons = [
+        {"text": "Jugar", "action": lambda: "game"},
+        {"text": "Estadísticas", "action": lambda: "stats"},  # Botón de Estadísticas
+        {"text": "Configuración", "action": lambda: "config"},
+        {"text": "Salir", "action": lambda: sys.exit()}
+    ]
 
     while menu_running:
-        buttons = main_menu_buttons()
-        
         screen.blit(background_menu_image, (0, 0))
         title = font_large.render("Project Zombie", True, (255, 255, 255))
-        screen.blit(title, (screen_width//2 - title.get_width()//2, 100))
-        # Créditos a la izquierda y versión a la derecha
-        credit_text = font_small.render("Créditos: PistonCube", True, (255,255,255))
-        version_text = font_small.render("Version: V1.0 BETA", True, (255,255,255))
+        screen.blit(title, (screen_width // 2 - title.get_width() // 2, 50))
+
+        # Credits and version
+        credit_text = font_small.render("Créditos: PistonCube", True, (255, 255, 255))
+        version_text = font_small.render("Version: V1.2 BETA", True, (255, 255, 255))
         screen.blit(credit_text, (10, screen_height - 20))
         screen.blit(version_text, (screen_width - version_text.get_width() - 10, screen_height - 20))
 
         mouse_pos = pygame.mouse.get_pos()
         mouse_pressed = pygame.mouse.get_pressed()[0]
         button_rects = []
-        start_x = 300
-        start_y = 200
-        spacing = 100
 
+        # Minecraft style button layout (centered column)
+        start_y = screen_height // 2 - (len(buttons) * 60) // 2  # Center vertically
         for i, btn in enumerate(buttons):
-            btn_x = start_x
-            btn_y = start_y + i*spacing
+            btn_x = screen_width // 2 - 100  # Centered
+            btn_y = start_y + i * 60  # Vertical spacing
             is_hovered = pygame.Rect(btn_x, btn_y, 200, 50).collidepoint(mouse_pos)
             if is_hovered and last_hovered_index != i:
                 hover_sound.play()
@@ -187,61 +191,67 @@ def show_main_menu():
             is_clicked = is_hovered and mouse_pressed
             rect = draw_button(btn["text"], btn_x, btn_y, 200, 50, is_hovered, is_clicked)
             button_rects.append(rect)
+
         pygame.display.flip()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
             if event.type == pygame.MOUSEBUTTONUP:
                 for i, rect in enumerate(button_rects):
                     if rect.collidepoint(event.pos):
                         click_sound.play()
                         result = buttons[i]["action"]()
-                        if result == "jugar":
-                            # Llamar al menú de jugar
-                            jugar_result = show_jugar_menu()
-                            if jugar_result == "start":
+                        if result == "game":
+                            game_result = show_game_menu()
+                            if game_result == "start":
                                 return "start"
+                        elif result == "stats":  # Acción para el botón de Estadísticas
+                            show_statistics_screen()
                         elif result == "config":
                             show_configuration_menu()
+
         pygame.time.Clock().tick(60)
 
-# MENÚ DE JUGAR
+# MENÚ DE JUGAR (con Dificultad)
 
-def show_jugar_menu():
-    """Submenú de 'Jugar' con las opciones:
-       - Iniciar (comienza el juego)
-       - Estadísticas (muestra estadísticas del juego)
-       - Volver (regresa al menú principal)
-    """
-    jugar_running = True
-    global last_hovered_index
+def show_game_menu():
+    """Submenú de 'Jugar' con Dificultad."""
+    game_running = True
+    global last_hovered_index, difficulty
     last_hovered_index = None
-    buttons = [
-        {"text": "Iniciar", "action": lambda: "start"},
-        {"text": "Estadísticas", "action": lambda: "stats"},
-        {"text": "Volver", "action": lambda: "back"}
-    ]
-    start_x = 300
-    start_y = 200
-    spacing = 100
-    while jugar_running:
+    
+    # Elimina la definición inicial de buttons aquí
+
+    start_x = screen_width // 2 - 100  # Centrado
+    start_y = screen_height // 2 - (3 * 60) // 2  # Centrado verticalmente (3 botones)
+    spacing = 60
+
+    while game_running:
+        # Mueve la definición de buttons DENTRO del bucle
+        buttons = [
+            {"text": "Iniciar", "action": lambda: "start"},
+            {"text": f"Dificultad: {difficulty.capitalize()}", "action": cycle_difficulty},
+            {"text": "Volver", "action": lambda: "back"}
+        ]
+        
         screen.blit(background_menu_image, (0, 0))
         title = font_large.render("Jugar", True, (255, 255, 255))
-        screen.blit(title, (screen_width//2 - title.get_width()//2, 100))
-        # Créditos a la izquierda y versión a la derecha
-        credit_text = font_small.render("Créditos: PistonCube", True, (255,255,255))
-        version_text = font_small.render("Version: V1.0 BETA", True, (255,255,255))
+        screen.blit(title, (screen_width // 2 - title.get_width() // 2, 100))
+
+        # Credits and version
+        credit_text = font_small.render("Créditos: PistonCube", True, (255, 255, 255))
+        version_text = font_small.render("Version: V1.2 BETA", True, (255, 255, 255))
         screen.blit(credit_text, (10, screen_height - 20))
         screen.blit(version_text, (screen_width - version_text.get_width() - 10, screen_height - 20))
-        
+
         mouse_pos = pygame.mouse.get_pos()
         mouse_pressed = pygame.mouse.get_pressed()[0]
         button_rects = []
         for i, btn in enumerate(buttons):
             btn_x = start_x
-            btn_y = start_y + i*spacing
+            btn_y = start_y + i * spacing
             is_hovered = pygame.Rect(btn_x, btn_y, 200, 50).collidepoint(mouse_pos)
             if is_hovered and last_hovered_index != i:
                 hover_sound.play()
@@ -250,11 +260,11 @@ def show_jugar_menu():
             rect = draw_button(btn["text"], btn_x, btn_y, 200, 50, is_hovered, is_clicked)
             button_rects.append(rect)
         pygame.display.flip()
-        
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
             if event.type == pygame.MOUSEBUTTONUP:
                 for i, rect in enumerate(button_rects):
                     if rect.collidepoint(event.pos):
@@ -262,8 +272,6 @@ def show_jugar_menu():
                         action = buttons[i]["action"]()
                         if action == "start":
                             return "start"
-                        elif action == "stats":
-                            show_statistics_screen()
                         elif action == "back":
                             return "back"
         pygame.time.Clock().tick(60)
@@ -284,7 +292,7 @@ def show_statistics_screen():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
             if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
                 stats_running = False
         pygame.time.Clock().tick(60)
@@ -295,7 +303,7 @@ def show_configuration_menu():
     """Muestra el menú de configuración con el slider de volumen."""
     config_running = True
     slider_x = 300
-    slider_y = 300
+    slider_y = 250
     slider_width = 200
     slider_height = 20
     knob_radius = 10
@@ -306,21 +314,31 @@ def show_configuration_menu():
         screen.blit(background_menu_image, (0, 0))
         title = font_large.render("Configuración", True, (255, 255, 255))
         screen.blit(title, (screen_width//2 - title.get_width()//2, 100))
-        info = font_small.render("Ajusta el volumen:", True, (255, 255, 255))
-        screen.blit(info, (slider_x, slider_y - 40))
-
+        
+        # Slider música
+        music_info = font_small.render("Volumen Música:", True, (255, 255, 255))
+        screen.blit(music_info, (slider_x, slider_y - 40))
         pygame.draw.rect(screen, (100, 100, 100), (slider_x, slider_y, slider_width, slider_height))
         pygame.draw.rect(screen, (0, 0, 0), (slider_x, slider_y, slider_width, slider_height), 2)
+        knob_x_music = slider_x + int(music_volume * slider_width)
+        knob_y_music = slider_y + slider_height // 2
+        pygame.draw.circle(screen, (200, 200, 200), (knob_x_music, knob_y_music), knob_radius)
+        pygame.draw.circle(screen, (0, 0, 0), (knob_x_music, knob_y_music), knob_radius, 2)
 
-        knob_x = slider_x + int(music_volume * slider_width)
-        knob_y = slider_y + slider_height // 2
-        pygame.draw.circle(screen, (200, 200, 200), (knob_x, knob_y), knob_radius)
-        pygame.draw.circle(screen, (0, 0, 0), (knob_x, knob_y), knob_radius, 2)
+        # Slider efectos
+        sfx_info = font_small.render("Volumen Efectos:", True, (255, 255, 255))
+        screen.blit(sfx_info, (slider_x, slider_y + 60 - 40))
+        pygame.draw.rect(screen, (100, 100, 100), (slider_x, slider_y + 60, slider_width, slider_height))
+        pygame.draw.rect(screen, (0, 0, 0), (slider_x, slider_y + 60, slider_width, slider_height), 2)
+        knob_x_sfx = slider_x + int(sfx_volume * slider_width)
+        knob_y_sfx = slider_y + 60 + slider_height // 2
+        pygame.draw.circle(screen, (200, 200, 200), (knob_x_sfx, knob_y_sfx), knob_radius)
+        pygame.draw.circle(screen, (0, 0, 0), (knob_x_sfx, knob_y_sfx), knob_radius, 2)
 
         mouse_pos = pygame.mouse.get_pos()
         mouse_pressed = pygame.mouse.get_pressed()[0]
-        back_button_rect = draw_button(back_button["text"], screen_width//2 - 100, slider_y + 80, 200, 50,
-                                        is_hovered=pygame.Rect(screen_width//2 - 100, slider_y + 80, 200, 50).collidepoint(mouse_pos),
+        back_button_rect = draw_button(back_button["text"], screen_width//2 - 100, slider_y + 140, 200, 50,
+                                        is_hovered=pygame.Rect(screen_width//2 - 100, slider_y + 140, 200, 50).collidepoint(mouse_pos),
                                         is_clicked=mouse_pressed)
         
         pygame.display.flip()
@@ -328,20 +346,38 @@ def show_configuration_menu():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
-                slider_rect = pygame.Rect(slider_x, slider_y, slider_width, slider_height)
-                if slider_rect.collidepoint(event.pos):
+                # Control slider música
+                music_slider_rect = pygame.Rect(slider_x, slider_y, slider_width, slider_height)
+                if music_slider_rect.collidepoint(event.pos):
                     rel_x = event.pos[0] - slider_x
                     new_volume = rel_x / slider_width
                     set_music_volume(new_volume)
+                
+                # Control slider efectos
+                sfx_slider_rect = pygame.Rect(slider_x, slider_y + 60, slider_width, slider_height)
+                if sfx_slider_rect.collidepoint(event.pos):
+                    rel_x = event.pos[0] - slider_x
+                    new_volume = rel_x / slider_width
+                    set_sfx_volume(new_volume)
+            
             if event.type == pygame.MOUSEMOTION:
                 if pygame.mouse.get_pressed()[0]:
-                    slider_rect = pygame.Rect(slider_x, slider_y, slider_width, slider_height)
-                    if slider_rect.collidepoint(event.pos):
+                    # Actualizar volumen música
+                    music_slider_rect = pygame.Rect(slider_x, slider_y, slider_width, slider_height)
+                    if music_slider_rect.collidepoint(event.pos):
                         rel_x = event.pos[0] - slider_x
                         new_volume = rel_x / slider_width
                         set_music_volume(new_volume)
+                    
+                    # Actualizar volumen efectos
+                    sfx_slider_rect = pygame.Rect(slider_x, slider_y + 60, slider_width, slider_height)
+                    if sfx_slider_rect.collidepoint(event.pos):
+                        rel_x = event.pos[0] - slider_x
+                        new_volume = rel_x / slider_width
+                        set_sfx_volume(new_volume)
+            
             if event.type == pygame.MOUSEBUTTONUP:
                 if back_button_rect.collidepoint(event.pos):
                     click_sound.play()
@@ -587,15 +623,15 @@ if __name__ == "__main__":
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         pygame.quit()
-                        exit()
+                        sys.exit()
                     if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
                         showing = False
             game_data["has_seen_story"] = True
             save_game_data(game_data)
         show_story()
-    while True:
+    while True:  # Main game loop
         action = show_main_menu()
         if action == "start":
             result = main()
             if result in ("main_menu", "retry"):
-                continue
+                continue  # Go back to main menu or retry
