@@ -40,6 +40,6 @@ In a world where hordes grow smarter by the minute, your wits and reflexes will 
 [![Discord](https://img.shields.io/discord/1108459439415103631?color=5865F2&logo=discord)](https://discord.pistoncube.com.ar/)  
 
 **Bug Reports**:  
-`Issues` on [GitHub](https://github.com/PistonCube/ProjectZombie) or email [soporte@pistoncube.com.ar](mailto:soporte@pistoncube.com.ar)
+`Issues` on [GitHub](https://github.com/PistonCube/ProjectZombie) or email [admin@pistoncube.com.ar](mailto:admin@pistoncube.com.ar)
 
 **Humanity is counting on you, soldier!**  
