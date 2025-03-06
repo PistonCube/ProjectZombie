@@ -1,263 +1,368 @@
+# Initial setup
+import os
 import pygame
 import random
-import os
 import json
+import sys
+import locale
 import time
-import sys  # Importar sys para sys.exit()
+import zipfile
+from pypresence import Presence
+import atexit
 
-pygame.init()
+# Directory configuration
+APP_DATA_DIR = os.path.join(os.getenv('APPDATA'), '.projectzombie')
+os.makedirs(APP_DATA_DIR, exist_ok=True)
 
-# Configuración de la pantalla
-screen_width = 800
-screen_height = 600
-screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption('Project Zombie')
+# Asset extraction system
+def extract_assets():
+    target_dir = os.path.join(APP_DATA_DIR, "assets")
+    if os.path.exists(target_dir):
+        return
 
-# Obtener ruta del directorio actual
-BASE_DIR = os.path.dirname(__file__)
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(__file__)
+    
+    assets_zip_path = os.path.join(base_path, "assets.zip")
+    
+    if not os.path.exists(assets_zip_path):
+        raise FileNotFoundError(f"Archivo assets.zip no encontrado en: {assets_zip_path}")
+    
+    with zipfile.ZipFile(assets_zip_path, 'r') as zip_ref:
+        zip_ref.extractall(target_dir)
 
-# Cargar el icono del juego y establecerlo
-icon_image = pygame.image.load(os.path.join(BASE_DIR, "assets/img", "icon.png"))
-pygame.display.set_icon(icon_image)
-
-# Cargar imágenes
-background_menu_image = pygame.image.load(os.path.join(BASE_DIR, "assets/img", "background.png"))
-background_game_image = pygame.image.load(os.path.join(BASE_DIR, "assets/img", "map.png"))
-player_image = pygame.image.load(os.path.join(BASE_DIR, "assets/img", "player.png"))
-bullet_image = pygame.image.load(os.path.join(BASE_DIR, "assets/img", "bullet.png"))
-enemy_image = pygame.image.load(os.path.join(BASE_DIR, "assets/img", "enemy.png"))
-
-# Redimensionar imágenes
-background_menu_image = pygame.transform.scale(background_menu_image, (screen_width, screen_height))
-background_game_image = pygame.transform.scale(background_game_image, (screen_width, screen_height))
-player_image = pygame.transform.scale(player_image, (50, 50))
-bullet_image = pygame.transform.scale(bullet_image, (5, 10))
-enemy_image = pygame.transform.scale(enemy_image, (50, 50))
-
-# Cargar sonidos
-pygame.mixer.music.load(os.path.join(BASE_DIR, "assets/sounds", "background_music.mp3"))
-pygame.mixer.music.play(-1)
-shoot_sound = pygame.mixer.Sound(os.path.join(BASE_DIR, "assets/sounds", "shoot.wav"))
-click_sound = pygame.mixer.Sound(os.path.join(BASE_DIR, "assets/sounds", "click.wav"))
-hover_sound = click_sound  # Se reutiliza el sonido click para el hover
-
-# Fuentes
-font = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 30)
-font_large = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 50)
-font_xlarge = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 70)
-font_small = pygame.font.Font(os.path.join(BASE_DIR, 'assets/front/pixel.otf'), 15)
-
-# Archivo game_data.json para guardar high score y configuración.
-game_data_path = os.path.join(BASE_DIR, "game_data.json")
+# Game data management
 def load_game_data():
+    default_data = {
+        "high_score": 0,
+        "music_volume": 0.5,
+        "sfx_volume": 0.5,
+        "has_seen_story": False,
+        "language": "en_us",
+        "resolution": {"width": 800, "height": 600},
+        "fullscreen": True
+    }
+    
+    game_data_path = os.path.join(APP_DATA_DIR, "game_data.json")
     if os.path.exists(game_data_path):
         with open(game_data_path, "r") as file:
-            return json.load(file)
-    return {"high_score": 0, "music_volume": 0.5, "sfx_volume": 0.5, "has_seen_story": False}
+            try:
+                loaded_data = json.load(file)
+                for key in default_data:
+                    if key not in loaded_data:
+                        loaded_data[key] = default_data[key]
+                return loaded_data
+            except json.JSONDecodeError:
+                return default_data
+    return default_data
+
+def save_game_data(data):
+    with open(os.path.join(APP_DATA_DIR, "game_data.json"), "w") as file:
+        json.dump(data, file, indent=4)
+
+game_data = load_game_data()
+save_game_data(game_data)  # Guardar defaults si es primera ejecución
+
+# Initialize Pygame
+pygame.init()
+
+# Screen configuration
+screen = pygame.display.set_mode(
+    (game_data["resolution"]["width"], game_data["resolution"]["height"])
+)
+pygame.display.set_caption('Project Zombie')
+
+# Discord RPC setup
+client_id = '1346887066297827409'
+RPC = Presence(client_id)
+try:
+    RPC.connect()
+except Exception as e:
+    print(f"Discord RPC connection error: {e}")
+
+atexit.register(RPC.close)
+game_version = "V1.3 BETA"
+
+# Sistema de extracción de assets
+def extract_assets():
+    target_dir = os.path.join(APP_DATA_DIR, "assets")
+    if os.path.exists(target_dir):
+        return
+
+    # Determinar ruta base según si está empaquetado
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(__file__)
+    
+    assets_zip_path = os.path.join(base_path, "assets.zip")
+    
+    if not os.path.exists(assets_zip_path):
+        raise FileNotFoundError(f"Archivo assets.zip no encontrado en: {assets_zip_path}")
+    
+    print(f"Extrayendo assets a {target_dir}...")
+    with zipfile.ZipFile(assets_zip_path, 'r') as zip_ref:
+        zip_ref.extractall(target_dir)
+
+# Configuración de directorios
+APP_DATA_DIR = os.path.join(os.getenv('APPDATA'), '.projectzombie')
+os.makedirs(APP_DATA_DIR, exist_ok=True)
+extract_assets()  # Extraer assets después de crear directorio
+
+ASSETS_DIR = os.path.join(APP_DATA_DIR, "assets")
+LANG_DIR = os.path.join(ASSETS_DIR, "lang")
+game_data_path = os.path.join(APP_DATA_DIR, "game_data.json")
+
+DEFAULT_LANG = "en_us"
+LANGUAGES = ["en_us", "es_es"]
+
+def get_system_language():
+    try:
+        lang, _ = locale.getlocale()
+        return lang.lower().replace("-", "_") if lang else DEFAULT_LANG
+    except:
+        return DEFAULT_LANG
+
+def load_language(lang_code):
+    lang_path = os.path.join(LANG_DIR, f"{lang_code}.json")
+    if not os.path.exists(lang_path):
+        lang_path = os.path.join(LANG_DIR, f"{DEFAULT_LANG}.json")
+    
+    with open(lang_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def load_game_data():
+    default_data = {
+        "high_score": 0,
+        "music_volume": 0.5,
+        "sfx_volume": 0.5,
+        "has_seen_story": False,
+        "language": get_system_language(),
+        "resolution": {"width": 800, "height": 600},
+        "fullscreen": True
+    }
+    
+    if os.path.exists(game_data_path):
+        with open(game_data_path, "r") as file:
+            try:
+                loaded_data = json.load(file)
+                for key in default_data:
+                    if key not in loaded_data:
+                        loaded_data[key] = default_data[key]
+                return loaded_data
+            except json.JSONDecodeError:
+                return default_data
+    return default_data
 
 def save_game_data(data):
     with open(game_data_path, "w") as file:
-        json.dump(data, file)
+        json.dump(data, file, indent=4)
 
 game_data = load_game_data()
+save_game_data(game_data)
+current_lang = game_data["language"]
 
-# Configuración de sonido
-music_volume = game_data.get("music_volume", 0.5)
-sfx_volume = game_data.get("sfx_volume", 0.5)
-pygame.mixer.music.set_volume(music_volume)
-shoot_sound.set_volume(sfx_volume)
-click_sound.set_volume(sfx_volume)
+lang_data = load_language(current_lang)
 
-def set_music_volume(vol):
-    global music_volume, game_data
-    music_volume = max(0, min(1, vol))
-    pygame.mixer.music.set_volume(music_volume)
-    game_data["music_volume"] = music_volume
-    save_game_data(game_data)
+def change_language(new_lang):
+    global current_lang, lang_data, game_data
+    if new_lang in LANGUAGES:
+        current_lang = new_lang
+        lang_data = load_language(new_lang)
+        game_data["language"] = new_lang
+        save_game_data(game_data)
 
-def set_sfx_volume(vol):
-    global sfx_volume, game_data
-    sfx_volume = max(0, min(1, vol))
-    shoot_sound.set_volume(sfx_volume)
-    click_sound.set_volume(sfx_volume)
-    game_data["sfx_volume"] = sfx_volume
-    save_game_data(game_data)
+# Sistema de recursos
+def load_image(path, size=None):
+    img = pygame.image.load(os.path.join(ASSETS_DIR, "img", path))
+    return pygame.transform.scale(img, size) if size else img
 
-# Variables del jugador
-player_x = screen_width // 2
-player_y = screen_height - 60
+def load_sound(path):
+    try:
+        return pygame.mixer.Sound(os.path.join(ASSETS_DIR, "sounds", path))
+    except Exception as e:
+        print(f"Error cargando sonido: {e}")
+        return pygame.mixer.Sound(os.path.join(ASSETS_DIR, "sounds", "placeholder.wav"))
+
+# Carga de assets
+icon_image = load_image("icon.png")
+background_menu_image = load_image("background.png", (game_data["resolution"]["width"], game_data["resolution"]["height"]))
+background_game_image = load_image("map.png", (game_data["resolution"]["width"], game_data["resolution"]["height"]))
+player_image = load_image("player.png", (50, 50))
+bullet_image = load_image("bullet.png", (5, 10))
+enemy_image = load_image("enemy.png", (50, 50))
+
+pygame.display.set_icon(icon_image)
+
+# Configuración de audio
+pygame.mixer.music.load(os.path.join(ASSETS_DIR, "sounds", "background_music.mp3"))
+shoot_sound = load_sound("shoot.wav")
+click_sound = load_sound("click.wav")
+hover_sound = click_sound
+
+# Audio configuration
+def apply_audio_settings():
+    pygame.mixer.music.set_volume(game_data["music_volume"])
+    shoot_sound.set_volume(game_data["sfx_volume"])
+    click_sound.set_volume(game_data["sfx_volume"])
+    hover_sound.set_volume(game_data["sfx_volume"])
+
+apply_audio_settings()
+
+# UI system settings
+HOVER_COLOR = (210, 210, 210)
+BASE_COLOR = (255, 255, 255)
+CLICK_COLOR = (180, 180, 180)
+last_hovered = None
+
+def apply_audio_settings():
+    pygame.mixer.music.set_volume(game_data["music_volume"])
+    shoot_sound.set_volume(game_data["sfx_volume"])
+    click_sound.set_volume(game_data["sfx_volume"])
+    hover_sound.set_volume(game_data["sfx_volume"])
+
+apply_audio_settings()
+
+# Fuentes
+FONT_PATH = os.path.join(ASSETS_DIR, "fonts", "pixel.otf")
+font = pygame.font.Font(FONT_PATH, 24)
+font_large = pygame.font.Font(FONT_PATH, 36)
+font_xlarge = pygame.font.Font(FONT_PATH, 48)
+font_small = pygame.font.Font(FONT_PATH, 18)
+
+# Sistema de resolución
+RESOLUTIONS = [(800, 600), (1024, 768), (1280, 720), (1920, 1080)]
+current_res_index = RESOLUTIONS.index(
+    (game_data["resolution"]["width"], game_data["resolution"]["height"])
+) if (game_data["resolution"]["width"], game_data["resolution"]["height"]) in RESOLUTIONS else 0
+
+def cycle_resolution():
+    global current_res_index, game_data
+    current_res_index = (current_res_index + 1) % len(RESOLUTIONS)
+    new_width, new_height = RESOLUTIONS[current_res_index]
+    game_data["resolution"]["width"] = new_width
+    game_data["resolution"]["height"] = new_height
+    apply_resolution()
+
+def apply_resolution():
+    global screen, background_menu_image, background_game_image
+    flags = pygame.FULLSCREEN if game_data["fullscreen"] else 0
+    screen = pygame.display.set_mode((game_data["resolution"]["width"], game_data["resolution"]["height"]), flags)
+    background_menu_image = load_image("background.png", (game_data["resolution"]["width"], game_data["resolution"]["height"]))
+    background_game_image = load_image("map.png", (game_data["resolution"]["width"], game_data["resolution"]["height"]))
+
+def draw_button(text, x, y, width=180, height=40, is_hovered=False, is_clicked=False):
+    color = CLICK_COLOR if is_clicked else HOVER_COLOR if is_hovered else BASE_COLOR
+    btn_rect = pygame.Rect(x, y, width, height)
+    pygame.draw.rect(screen, color, btn_rect)
+    pygame.draw.rect(screen, (0, 0, 0), btn_rect, 2)
+    text_surf = font_small.render(text, True, (0, 0, 0))
+    text_rect = text_surf.get_rect(center=btn_rect.center)
+    screen.blit(text_surf, text_rect)
+    return btn_rect
+
+def draw_health_bar(x, y, current, max):
+    bar_width = 200
+    bar_height = 20
+    fill = (current / max) * bar_width
+    pygame.draw.rect(screen, (255, 0, 0), (x, y, bar_width, bar_height))
+    pygame.draw.rect(screen, (0, 255, 0), (x, y, fill, bar_height))
+
+def handle_hover_sound(hover_elements, mouse_pos):
+    global last_hovered
+    current_hover = None
+    
+    hovered = [identifier for identifier, rect in hover_elements if rect.collidepoint(mouse_pos)]
+    
+    if hovered:
+        current_hover = hovered[0]
+    
+    if current_hover != last_hovered:
+        if current_hover is not None:
+            hover_sound.play()
+        last_hovered = current_hover
+
+# Variables del juego
+player_x = game_data["resolution"]["width"] // 2
+player_y = game_data["resolution"]["height"] - 60
 player_velocity = 5
-player_max_health = 20  # Vida máxima del jugador: 20 puntos
-player_health = player_max_health  # Salud inicial
-
-# Bala
+player_max_health = 20
+player_health = player_max_health
 bullet_velocity = 7
-bullets = []  # Lista global de balas
-
-# Enemigos
-enemy_velocity = 2
-enemy_spawn_rate = 50
-enemies = []  # Lista global de enemigos
-
-# Dificultad: (velocidad de enemigo, frecuencia de spawn)
-difficulty_levels = {"easy": (1, 60), "medium": (2, 50), "hard": (5, 20)}
+bullets = []
+enemies = []
+difficulty_levels = {
+    "easy": {"speed": 1, "spawn_rate": 60, "damage": 2},
+    "medium": {"speed": 2, "spawn_rate": 50, "damage": 4},
+    "hard": {"speed": 5, "spawn_rate": 20, "damage": 6}
+}
 difficulty = "medium"
-
-# Score
+enemy_velocity = difficulty_levels[difficulty]["speed"]
+enemy_spawn_rate = difficulty_levels[difficulty]["spawn_rate"]
+enemy_damage = difficulty_levels[difficulty]["damage"]
 score = 0
 
 def update_high_score(current_score):
-    if current_score > game_data.get("high_score", 0):
+    if current_score > game_data["high_score"]:
         game_data["high_score"] = current_score
         save_game_data(game_data)
 
 def adjust_difficulty():
-    global enemy_velocity, enemy_spawn_rate
-    enemy_velocity, enemy_spawn_rate = difficulty_levels[difficulty]
+    global enemy_velocity, enemy_spawn_rate, enemy_damage
+    settings = difficulty_levels[difficulty]
+    enemy_velocity = settings["speed"]
+    enemy_spawn_rate = settings["spawn_rate"]
+    enemy_damage = settings["damage"]
 
-# Daño según la dificultad:
-# Fácil: 2, Medio: 4, Difícil: 6 puntos de daño por colisión.
-damage_levels = {"easy": 2, "medium": 4, "hard": 6}
-
-# Variables para animación de botones
-HOVER_COLOR = (210, 210, 210)
-BASE_BUTTON_COLOR = (255, 255, 255)
-CLICK_COLOR = (180, 180, 180)
-last_hovered_index = None  # Para evitar repetir sonido hover
-
-def draw_button(text, x, y, width=200, height=50, is_hovered=False, is_clicked=False):
-    """Dibuja un botón con animación según el estado."""
-    color = BASE_BUTTON_COLOR
-    if is_clicked:
-        color = CLICK_COLOR
-    elif is_hovered:
-        color = HOVER_COLOR
-    button_rect = pygame.Rect(x, y, width, height)
-    pygame.draw.rect(screen, color, button_rect)
-    pygame.draw.rect(screen, (0, 0, 0), button_rect, 2)
-    label = font.render(text, True, (0, 0, 0))
-    screen.blit(label, (x + (width - label.get_width()) // 2, y + (height - label.get_height()) // 2))
-    return button_rect
-
-# Función para ciclar la dificultad
 def cycle_difficulty():
     global difficulty
-    if difficulty == "easy":
-        difficulty = "medium"
-    elif difficulty == "medium":
-        difficulty = "hard"
-    else:
-        difficulty = "easy"
+    difficulties = list(difficulty_levels.keys())
+    current_index = difficulties.index(difficulty)
+    difficulty = difficulties[(current_index + 1) % len(difficulties)]
     adjust_difficulty()
 
-# MENÚ PRINCIPAL
-
+# Menús
 def show_main_menu():
-    global last_hovered_index
-    menu_running = True
-    last_hovered_index = None
-    buttons = [
-        {"text": "Jugar", "action": lambda: "game"},
-        {"text": "Estadísticas", "action": lambda: "stats"},
-        {"text": "Configuración", "action": lambda: "config"},
-        {"text": "Salir", "action": lambda: sys.exit()}
-    ]
-
-    while menu_running:
+    global last_hovered
+    last_hovered = None
+    while True:
         screen.blit(background_menu_image, (0, 0))
-        title = font_large.render("Project Zombie", True, (255, 255, 255))
-        screen.blit(title, (screen_width // 2 - title.get_width() // 2, 50))
-
-        # Credits and version
+        title = font_xlarge.render(lang_data.get("title", "Project Zombie"), True, (255, 255, 255))
+        screen.blit(title, (screen.get_width()//2 - title.get_width()//2, 100))
+        
         credit_text = font_small.render("Créditos: PistonCube", True, (255, 255, 255))
-        version_text = font_small.render("Version: V1.2 BETA", True, (255, 255, 255))
-        screen.blit(credit_text, (10, screen_height - 20))
-        screen.blit(version_text, (screen_width - version_text.get_width() - 10, screen_height - 20))
+        version_text = font_small.render("Versión: v1.3 BETA", True, (255, 255, 255))
+        screen.blit(credit_text, (10, screen.get_height() - 20))
+        screen.blit(version_text, (screen.get_width() - version_text.get_width() - 10, screen.get_height() - 20))
 
         mouse_pos = pygame.mouse.get_pos()
         mouse_pressed = pygame.mouse.get_pressed()[0]
-        button_rects = []
-
-        start_y = screen_height // 2 - (len(buttons) * 60) // 2  # Center vertically
-        for i, btn in enumerate(buttons):
-            btn_x = screen_width // 2 - 100  # Centered
-            btn_y = start_y + i * 60  # Vertical spacing
-            is_hovered = pygame.Rect(btn_x, btn_y, 200, 50).collidepoint(mouse_pos)
-            if is_hovered and last_hovered_index != i:
-                hover_sound.play()
-                last_hovered_index = i
-            is_clicked = is_hovered and mouse_pressed
-            rect = draw_button(btn["text"], btn_x, btn_y, 200, 50, is_hovered, is_clicked)
-            button_rects.append(rect)
-
-        pygame.display.flip()
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONUP:
-                for i, rect in enumerate(button_rects):
-                    if rect.collidepoint(event.pos):
-                        click_sound.play()
-                        result = buttons[i]["action"]()
-                        if result == "game":
-                            game_result = show_game_menu()
-                            if game_result == "start":
-                                return "start"
-                        elif result == "stats":  # Acción para el botón de Estadísticas
-                            show_statistics_screen()
-                        elif result == "config":
-                            show_configuration_menu()
-
-        pygame.time.Clock().tick(60)
-
-# MENÚ DE JUGAR
-
-def show_game_menu():
-    """Submenú de 'Jugar' con Dificultad."""
-    game_running = True
-    global last_hovered_index, difficulty
-    last_hovered_index = None
-    
-
-
-    start_x = screen_width // 2 - 100  
-    start_y = screen_height // 2 - (3 * 60) // 2  
-    spacing = 60
-
-    while game_running:
-
         buttons = [
-            {"text": "Iniciar", "action": lambda: "start"},
-            {"text": f"Dificultad: {difficulty.capitalize()}", "action": cycle_difficulty},
-            {"text": "Volver", "action": lambda: "back"}
+            {"text": lang_data.get("play_button", "Play"), "action": "play"},
+            {"text": lang_data.get("config_button", "Settings"), "action": "config"},
+            {"text": lang_data.get("quit_button", "Quit"), "action": "quit"}
         ]
         
-        screen.blit(background_menu_image, (0, 0))
-        title = font_large.render("Jugar", True, (255, 255, 255))
-        screen.blit(title, (screen_width // 2 - title.get_width() // 2, 100))
-
-        credit_text = font_small.render("Créditos: PistonCube", True, (255, 255, 255))
-        version_text = font_small.render("Version: V1.2 BETA", True, (255, 255, 255))
-        screen.blit(credit_text, (10, screen_height - 20))
-        screen.blit(version_text, (screen_width - version_text.get_width() - 10, screen_height - 20))
-
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_pressed = pygame.mouse.get_pressed()[0]
         button_rects = []
+        hover_elements = []
+        start_y = screen.get_height()//2 - 50
+        
         for i, btn in enumerate(buttons):
-            btn_x = start_x
-            btn_y = start_y + i * spacing
-            is_hovered = pygame.Rect(btn_x, btn_y, 200, 50).collidepoint(mouse_pos)
-            if is_hovered and last_hovered_index != i:
-                hover_sound.play()
-                last_hovered_index = i
-            is_clicked = is_hovered and mouse_pressed
-            rect = draw_button(btn["text"], btn_x, btn_y, 200, 50, is_hovered, is_clicked)
+            btn_y = start_y + i * 60
+            rect = draw_button(btn["text"], 
+                             screen.get_width()//2 - 90, 
+                             btn_y, 
+                             width=180, 
+                             height=40)
             button_rects.append(rect)
+            hover_elements.append((btn["action"], rect))
+        
+        handle_hover_sound(hover_elements, mouse_pos)
+        
         pygame.display.flip()
-
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -266,167 +371,301 @@ def show_game_menu():
                 for i, rect in enumerate(button_rects):
                     if rect.collidepoint(event.pos):
                         click_sound.play()
-                        action = buttons[i]["action"]()
-                        if action == "start":
-                            return "start"
-                        elif action == "back":
-                            return "back"
-        pygame.time.Clock().tick(60)
+                        return buttons[i]["action"]
 
-def show_statistics_screen():
-    """Muestra una pantalla con las estadísticas del juego (por ejemplo, High Score)."""
-    stats_running = True
-    while stats_running:
+def show_game_menu():
+    global last_hovered, difficulty
+    last_hovered = None
+    buttons = [
+        {"text": lang_data.get("start_button", "Start Game"), "action": "start"},
+        {"text": f"{lang_data.get('difficulty_button', 'Difficulty: ')}{lang_data.get(f'difficulty_{difficulty}', 'Medium')}", "action": "cycle_diff"},
+        {"text": lang_data.get("back_button", "Back"), "action": "back"}
+    ]
+    
+    while True:
         screen.blit(background_menu_image, (0, 0))
-        title = font_large.render("Estadísticas", True, (255, 255, 255))
-        screen.blit(title, (screen_width//2 - title.get_width()//2, 100))
-
-        high_score_text = font.render("High Score: " + str(game_data.get("high_score", 0)), True, (255, 255, 255))
-        screen.blit(high_score_text, (screen_width//2 - high_score_text.get_width()//2, 250))
-        back_text = font.render("Pulsa cualquier tecla para volver", True, (255, 255, 255))
-        screen.blit(back_text, (screen_width//2 - back_text.get_width()//2, screen_height - 100))
-        pygame.display.flip()
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
-                stats_running = False
-        pygame.time.Clock().tick(60)
-
-# MENÚ DE CONFIGURACIÓN
-
-def show_configuration_menu():
-    """Muestra el menú de configuración con el slider de volumen."""
-    config_running = True
-    slider_x = 300
-    slider_y = 250
-    slider_width = 200
-    slider_height = 20
-    knob_radius = 10
-    back_button = {"text": "Volver", "action": lambda: "back"}
-    global last_hovered_index
-
-    while config_running:
-        screen.blit(background_menu_image, (0, 0))
-        title = font_large.render("Configuración", True, (255, 255, 255))
-        screen.blit(title, (screen_width//2 - title.get_width()//2, 100))
+        title = font_large.render(lang_data.get("select_difficulty", "Select Difficulty"), True, (255, 255, 255))
+        screen.blit(title, (screen.get_width()//2 - title.get_width()//2, 100))
         
-        # Slider música
-        music_info = font_small.render("Volumen Música:", True, (255, 255, 255))
-        screen.blit(music_info, (slider_x, slider_y - 40))
-        pygame.draw.rect(screen, (100, 100, 100), (slider_x, slider_y, slider_width, slider_height))
-        pygame.draw.rect(screen, (0, 0, 0), (slider_x, slider_y, slider_width, slider_height), 2)
-        knob_x_music = slider_x + int(music_volume * slider_width)
-        knob_y_music = slider_y + slider_height // 2
-        pygame.draw.circle(screen, (200, 200, 200), (knob_x_music, knob_y_music), knob_radius)
-        pygame.draw.circle(screen, (0, 0, 0), (knob_x_music, knob_y_music), knob_radius, 2)
-
-        # Slider efectos
-        sfx_info = font_small.render("Volumen Efectos:", True, (255, 255, 255))
-        screen.blit(sfx_info, (slider_x, slider_y + 60 - 40))
-        pygame.draw.rect(screen, (100, 100, 100), (slider_x, slider_y + 60, slider_width, slider_height))
-        pygame.draw.rect(screen, (0, 0, 0), (slider_x, slider_y + 60, slider_width, slider_height), 2)
-        knob_x_sfx = slider_x + int(sfx_volume * slider_width)
-        knob_y_sfx = slider_y + 60 + slider_height // 2
-        pygame.draw.circle(screen, (200, 200, 200), (knob_x_sfx, knob_y_sfx), knob_radius)
-        pygame.draw.circle(screen, (0, 0, 0), (knob_x_sfx, knob_y_sfx), knob_radius, 2)
-
         mouse_pos = pygame.mouse.get_pos()
         mouse_pressed = pygame.mouse.get_pressed()[0]
-        back_button_rect = draw_button(back_button["text"], screen_width//2 - 100, slider_y + 140, 200, 50,
-                                        is_hovered=pygame.Rect(screen_width//2 - 100, slider_y + 140, 200, 50).collidepoint(mouse_pos),
-                                        is_clicked=mouse_pressed)
+        button_rects = []
+        hover_elements = []
+        start_y = screen.get_height()//2 - 100
+        
+        for i, btn in enumerate(buttons):
+            btn_y = start_y + i * 60
+            rect = draw_button(btn["text"], 
+                             screen.get_width()//2 - 150, 
+                             btn_y, 300, 40,
+                             is_clicked=mouse_pressed)
+            button_rects.append(rect)
+            hover_elements.append((btn["action"], rect))
+        
+        handle_hover_sound(hover_elements, mouse_pos)
         
         pygame.display.flip()
-
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                # Control slider música
-                music_slider_rect = pygame.Rect(slider_x, slider_y, slider_width, slider_height)
-                if music_slider_rect.collidepoint(event.pos):
-                    rel_x = event.pos[0] - slider_x
-                    new_volume = rel_x / slider_width
-                    set_music_volume(new_volume)
+            if event.type == pygame.MOUSEBUTTONUP:
+                for i, rect in enumerate(button_rects):
+                    if rect.collidepoint(event.pos):
+                        click_sound.play()
+                        action = buttons[i]["action"]
+                        if action == "start":
+                            return "start"
+                        elif action == "cycle_diff":
+                            cycle_difficulty()
+                            buttons[1]["text"] = f"{lang_data.get('difficulty_button', 'Difficulty: ')}{lang_data.get(f'difficulty_{difficulty}', 'Medium')}"
+                        elif action == "back":
+                            return "back"
+
+def show_configuration_menu():
+    global last_hovered
+    last_hovered = None
+    
+    while True:
+        screen.blit(background_menu_image, (0, 0))
+        title = font_large.render(lang_data.get("config_title", "Settings"), True, (255, 255, 255))
+        screen.blit(title, (screen.get_width()//2 - title.get_width()//2, 50))
+
+        buttons = [
+            {"text": lang_data.get("video_button", "Video"), "action": "video"},
+            {"text": lang_data.get("language_button", "Language"), "action": "language"},
+            {"text": lang_data.get("audio_button", "Audio"), "action": "audio"},
+            {"text": lang_data.get("back_button", "Back"), "action": "back"}
+        ]
+        
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_pressed = pygame.mouse.get_pressed()[0]
+        button_rects = []
+        hover_elements = []
+        start_y = screen.get_height()//2 - 150
+        
+        for i, btn in enumerate(buttons):
+            btn_y = start_y + i * 60
+            rect = draw_button(btn["text"], 
+                            screen.get_width()//2 - 150, 
+                            btn_y, 300, 40,
+                            is_clicked=mouse_pressed)
+            button_rects.append(rect)
+            hover_elements.append((btn["action"], rect))
+        
+        handle_hover_sound(hover_elements, mouse_pos)
+        
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONUP:
+                for i, rect in enumerate(button_rects):
+                    if rect.collidepoint(event.pos):
+                        click_sound.play()
+                        action = buttons[i]["action"]
+                        if action == "video":
+                            show_video_menu()
+                        elif action == "audio":
+                            show_audio_menu()
+                        elif action == "language":
+                            show_language_menu()
+                        elif action == "back":
+                            return
+
+def show_video_menu():
+    global current_res_index, game_data
+    apply_resolution()
+    
+    while True:
+        screen.blit(background_menu_image, (0, 0))
+        title = font_large.render(lang_data.get("video_settings", "Video Settings"), True, (255, 255, 255))
+        screen.blit(title, (screen.get_width()//2 - title.get_width()//2, 50))
+
+        current_res = (game_data["resolution"]["width"], game_data["resolution"]["height"])
+        fs_state = lang_data.get("on" if game_data["fullscreen"] else "off", "On" if game_data["fullscreen"] else "Off")
+        
+        # Botón de Resolución
+        res_text = f"{current_res[0]}x{current_res[1]}"
+        res_btn = draw_button(f"{lang_data.get('resolution', 'Resolution')}: {res_text}", 
+                            screen.get_width()//2 - 200, 150, 400, 40)
+        
+        # Botón Fullscreen
+        fs_btn = draw_button(f"{lang_data.get('fullscreen', 'Fullscreen')}: {fs_state}", 
+                           screen.get_width()//2 - 200, 220, 400, 40)
+        
+        # Botón Atrás
+        back_btn = draw_button(lang_data.get("back_button", "Back"), 
+                             screen.get_width()//2 - 100, 300, 200, 40)
+        
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONUP:
+                if res_btn.collidepoint(event.pos):
+                    cycle_resolution()
+                    click_sound.play()
+                if fs_btn.collidepoint(event.pos):
+                    game_data["fullscreen"] = not game_data["fullscreen"]
+                    apply_resolution()
+                    click_sound.play()
+                if back_btn.collidepoint(event.pos):
+                    save_game_data(game_data)
+                    return
+
+def show_audio_menu():
+    slider_width = 300
+    knob_radius = 10
+    
+    while True:
+        screen.blit(background_menu_image, (0, 0))
+        title = font_large.render(lang_data.get("audio_settings", "Audio Settings"), True, (255, 255, 255))
+        screen.blit(title, (screen.get_width()//2 - title.get_width()//2, 50))
+        
+        # Configuración de volumen
+        y = 150
+        screen.blit(font.render(lang_data.get("music_volume", "Music Volume:"), True, (255, 255, 255)), (100, y))
+        music_slider_rect = pygame.Rect(100, y + 40, slider_width, 20)
+        pygame.draw.rect(screen, (100, 100, 100), music_slider_rect)
+        pygame.draw.rect(screen, (0, 200, 0), (100, y + 40, game_data["music_volume"] * slider_width, 20))
+        pygame.draw.circle(screen, (200, 200, 200), 
+                         (100 + int(game_data["music_volume"] * slider_width), y + 50), 
+                         knob_radius)
+        
+        y += 100
+        screen.blit(font.render(lang_data.get("sfx_volume", "SFX Volume:"), True, (255, 255, 255)), (100, y))
+        sfx_slider_rect = pygame.Rect(100, y + 40, slider_width, 20)
+        pygame.draw.rect(screen, (100, 100, 100), sfx_slider_rect)
+        pygame.draw.rect(screen, (0, 200, 0), (100, y + 40, game_data["sfx_volume"] * slider_width, 20))
+        pygame.draw.circle(screen, (200, 200, 200), 
+                         (100 + int(game_data["sfx_volume"] * slider_width), y + 50), 
+                         knob_radius)
+        
+        # Botón Atrás
+        back_btn = draw_button(lang_data.get("back_button", "Back"), 
+                             screen.get_width()//2 - 100, 500, 200, 40)
+        
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
                 
-                # Control slider efectos
-                sfx_slider_rect = pygame.Rect(slider_x, slider_y + 60, slider_width, slider_height)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if music_slider_rect.collidepoint(event.pos):
+                    new_vol = (event.pos[0] - 100) / slider_width
+                    game_data["music_volume"] = max(0.0, min(1.0, new_vol))
+                    apply_audio_settings()
+                
                 if sfx_slider_rect.collidepoint(event.pos):
-                    rel_x = event.pos[0] - slider_x
-                    new_volume = rel_x / slider_width
-                    set_sfx_volume(new_volume)
+                    new_vol = (event.pos[0] - 100) / slider_width
+                    game_data["sfx_volume"] = max(0.0, min(1.0, new_vol))
+                    apply_audio_settings()
             
             if event.type == pygame.MOUSEMOTION:
                 if pygame.mouse.get_pressed()[0]:
-                    # Actualizar volumen música
-                    music_slider_rect = pygame.Rect(slider_x, slider_y, slider_width, slider_height)
                     if music_slider_rect.collidepoint(event.pos):
-                        rel_x = event.pos[0] - slider_x
-                        new_volume = rel_x / slider_width
-                        set_music_volume(new_volume)
+                        new_vol = (event.pos[0] - 100) / slider_width
+                        game_data["music_volume"] = max(0.0, min(1.0, new_vol))
+                        apply_audio_settings()
                     
-                    # Actualizar volumen efectos
-                    sfx_slider_rect = pygame.Rect(slider_x, slider_y + 60, slider_width, slider_height)
                     if sfx_slider_rect.collidepoint(event.pos):
-                        rel_x = event.pos[0] - slider_x
-                        new_volume = rel_x / slider_width
-                        set_sfx_volume(new_volume)
+                        new_vol = (event.pos[0] - 100) / slider_width
+                        game_data["sfx_volume"] = max(0.0, min(1.0, new_vol))
+                        apply_audio_settings()
             
             if event.type == pygame.MOUSEBUTTONUP:
-                if back_button_rect.collidepoint(event.pos):
-                    click_sound.play()
-                    config_running = False
-        pygame.time.Clock().tick(60)
+                if back_btn.collidepoint(event.pos):
+                    save_game_data(game_data)
+                    return
 
-# MENÚ DE PAUSA
-
-def pause_menu_buttons():
-    """Devuelve la lista de botones del menú de pausa."""
-    return [
-        {"text": "Continuar", "action": lambda: "resume"},
-        {"text": "Configuración", "action": lambda: "config"},
-        {"text": "Menú Principal", "action": lambda: "main_menu"}
-    ]
-
-def pause_menu():
-    global last_hovered_index
-    pause_running = True
-    buttons = pause_menu_buttons()
-    start_x = screen_width//2 - 100
-    start_y = screen_height//2 - 100
-    spacing = 70
-    last_hovered_index = None
-
-    while pause_running:
-        screen.blit(background_game_image, (0, 0))
-        overlay = pygame.Surface((screen_width, screen_height))
-        overlay.set_alpha(150)
-        overlay.fill((0, 0, 0))
-        screen.blit(overlay, (0, 0))
-        pause_title = font_large.render("PAUSA", True, (255, 255, 255))
-        screen.blit(pause_title, (screen_width//2 - pause_title.get_width()//2, start_y - 80))
-
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_pressed = pygame.mouse.get_pressed()[0]
-        button_rects = []
-        for i, btn in enumerate(buttons):
-            btn_x = start_x
-            btn_y = start_y + i*spacing
-            is_hovered = pygame.Rect(btn_x, btn_y, 200, 50).collidepoint(mouse_pos)
-            if is_hovered and last_hovered_index != i:
-                hover_sound.play()
-                last_hovered_index = i
-            is_clicked = is_hovered and mouse_pressed
-            rect = draw_button(btn["text"], btn_x, btn_y, 200, 50, is_hovered, is_clicked)
-            button_rects.append(rect)
+def show_language_menu():
+    while True:
+        screen.blit(background_menu_image, (0, 0))
+        title = font_large.render(lang_data.get("language_settings", "Language Settings"), True, (255, 255, 255))
+        screen.blit(title, (screen.get_width()//2 - title.get_width()//2, 50))
+        
+        y = 150
+        lang_buttons = []
+        for i, (lang_code, lang_name) in enumerate(lang_data.get("languages", {"en_us": "English", "es_es": "Spanish"}).items()):
+            btn_rect = draw_button(lang_name, 
+                                screen.get_width()//2 - 150, 
+                                y + i * 60, 300, 40,
+                                is_hovered=lang_code == current_lang)
+            lang_buttons.append((lang_code, btn_rect))
+            if lang_code == current_lang:
+                pygame.draw.rect(screen, (0, 255, 0), btn_rect.inflate(4, 4), 3)
+        
+        back_btn = draw_button(lang_data.get("back_button", "Back"), 
+                             screen.get_width()//2 - 100, 400, 200, 40)
+        
         pygame.display.flip()
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONUP:
+                for lang_code, rect in lang_buttons:
+                    if rect.collidepoint(event.pos):
+                        change_language(lang_code)
+                        click_sound.play()
+                
+                if back_btn.collidepoint(event.pos):
+                    return
+
+def pause_menu():
+    global last_hovered
+    last_hovered = None
+    while True:
+        screen.blit(background_game_image, (0, 0))
+        overlay = pygame.Surface((screen.get_width(), screen.get_height()))
+        overlay.set_alpha(150)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+        
+        title_text = lang_data.get("paused_title", "Paused")
+        title = font_large.render(title_text, True, (255, 255, 255))
+        screen.blit(title, (screen.get_width()//2 - title.get_width()//2, 100))
+        
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_pressed = pygame.mouse.get_pressed()[0]
+        
+        buttons = [
+            {"text": lang_data.get("resume_button", "Resume"), "action": "resume"},
+            {"text": lang_data.get("restart_button", "Restart"), "action": "restart"},
+            {"text": lang_data.get("menu_button", "Main Menu"), "action": "menu"}
+        ]
+        
+        button_rects = []
+        hover_elements = []
+        start_y = screen.get_height()//2 - 50
+        
+        for i, btn in enumerate(buttons):
+            btn_y = start_y + i * 60
+            rect = draw_button(btn["text"], 
+                             screen.get_width()//2 - 90, 
+                             btn_y, 
+                             width=180, 
+                             height=40)
+            button_rects.append(rect)
+            hover_elements.append((btn["action"], rect))
+        
+        handle_hover_sound(hover_elements, mouse_pos)
+        
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return "resume"
@@ -434,198 +673,323 @@ def pause_menu():
                 for i, rect in enumerate(button_rects):
                     if rect.collidepoint(event.pos):
                         click_sound.play()
-                        action = buttons[i]["action"]()
-                        if action == "config":
-                            show_configuration_menu()
-                        if action in ("resume", "main_menu"):
-                            return action
-        pygame.time.Clock().tick(60)
-
-# BARRA DE VIDA
-
-def draw_health_bar(x, y, health, max_health):
-    bar_width = 200
-    bar_height = 20
-    fill = (health / max_health) * bar_width
-    pygame.draw.rect(screen, (255, 0, 0), (x, y, bar_width, bar_height))
-    pygame.draw.rect(screen, (0, 255, 0), (x, y, fill, bar_height))
-    pygame.draw.rect(screen, (0, 0, 0), (x, y, bar_width, bar_height), 2)
-
-# PANTALLA DE MUERTE
+                        return buttons[i]["action"]
 
 def show_dead_screen():
-    dead_running = True
-    clock = pygame.time.Clock()
-    fade = 0  # Valor inicial para el efecto de fundido
-    
-    while dead_running:
+    global last_hovered
+    last_hovered = None
+    while True:
         screen.blit(background_game_image, (0, 0))
-        overlay = pygame.Surface((screen_width, screen_height))
+        overlay = pygame.Surface((screen.get_width(), screen.get_height()))
         overlay.fill((150, 0, 0))
-        if fade < 180:
-            fade = min(180, fade + 2)
-        overlay.set_alpha(fade)
+        overlay.set_alpha(180)
         screen.blit(overlay, (0, 0))
         
-        mensaje = "¡Has caído!"
-        text_shadow = font_xlarge.render(mensaje, True, (0, 0, 0))
-        text_main = font_xlarge.render(mensaje, True, (255, 255, 255))
-        text_x = screen_width//2 - text_main.get_width()//2
-        text_y = screen_height//2 - text_main.get_height() - 50
-        screen.blit(text_shadow, (text_x+4, text_y+4))
-        screen.blit(text_main, (text_x, text_y))
+        title = font_xlarge.render(lang_data.get("game_over", "Game Over"), True, (255, 255, 255))
+        screen.blit(title, (screen.get_width()//2 - title.get_width()//2, 100))
+        
+        score_text = font_large.render(f"{lang_data.get('final_score', 'Final Score')}: {score}", True, (255, 255, 255))
+        screen.blit(score_text, (screen.get_width()//2 - score_text.get_width()//2, 200))
         
         mouse_pos = pygame.mouse.get_pos()
         mouse_pressed = pygame.mouse.get_pressed()[0]
-        btn_menu = draw_button("Menú Principal", screen_width//2 - 220, screen_height//2 + 20,
-                                width=200, height=60,
-                                is_hovered=pygame.Rect(screen_width//2 - 220, screen_height//2 + 20, 200, 60).collidepoint(mouse_pos),
-                                is_clicked=mouse_pressed)
-        btn_retry = draw_button("Reintentar", screen_width//2 + 20, screen_height//2 + 20,
-                                 width=200, height=60,
-                                 is_hovered=pygame.Rect(screen_width//2 + 20, screen_height//2 + 20, 200, 60).collidepoint(mouse_pos),
-                                 is_clicked=mouse_pressed)
+        buttons = [
+            {"text": lang_data.get("retry_button", "Retry"), "action": "retry"},
+            {"text": lang_data.get("menu_button", "Main Menu"), "action": "menu"}
+        ]
+        
+        button_rects = []
+        hover_elements = []
+        start_y = screen.get_height()//2 + 50
+        
+        for i, btn in enumerate(buttons):
+            btn_y = start_y + i * 60
+            rect = draw_button(btn["text"], 
+                             screen.get_width()//2 - 90, 
+                             btn_y, 
+                             width=180, 
+                             height=40)
+            button_rects.append(rect)
+            hover_elements.append((btn["action"], rect))
+        
+        handle_hover_sound(hover_elements, mouse_pos)
+        
         pygame.display.flip()
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
             if event.type == pygame.MOUSEBUTTONUP:
-                if btn_menu.collidepoint(event.pos):
-                    click_sound.play()
-                    return "main_menu"
-                if btn_retry.collidepoint(event.pos):
-                    click_sound.play()
-                    return "retry"
-        clock.tick(60)
+                for i, rect in enumerate(button_rects):
+                    if rect.collidepoint(event.pos):
+                        click_sound.play()
+                        return buttons[i]["action"]
 
-# BUCLE PRINCIPAL DEL JUEGO
+def show_story():
+    story_texts = lang_data.get("story", "Welcome to Project Zombie").split('\n')
+    running = True
+    
+    while running:
+        # Fondo del menú
+        screen.blit(background_menu_image, (0, 0))
+        
+        # Capa translúcida
+        overlay = pygame.Surface((screen.get_width(), screen.get_height()))
+        overlay.set_alpha(128)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+        
+        # Configuración de texto
+        y = 100
+        line_spacing = 40
+        
+        for line in story_texts:
+            text = font.render(line, True, (255, 255, 255))
+            text_rect = text.get_rect(center=(screen.get_width()//2, y))
+            screen.blit(text, text_rect)
+            y += line_spacing
+        
+        # Botón Continuar
+        btn_rect = draw_button(lang_data.get("continue_button", "Continue"), 
+                             screen.get_width()//2 - 90, 
+                             screen.get_height() - 100,
+                             width=180, 
+                             height=40)
+        
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONUP:
+                if btn_rect.collidepoint(event.pos):
+                    click_sound.play()
+                    running = False
 
-def main():
+def show_initial_language_selection():
+    global last_hovered
+    last_hovered = None
+    buttons = [
+        {"text": "English", "lang": "en_us"},
+        {"text": "Español", "lang": "es_es"}
+    ]
+    
+    while True:
+        screen.blit(background_menu_image, (0, 0))
+        
+        # Fondo translúcido
+        overlay = pygame.Surface((screen.get_width(), screen.get_height()))
+        overlay.set_alpha(200)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+        
+        title = font_xlarge.render("Select your language", True, (255, 255, 255))
+        screen.blit(title, (screen.get_width()//2 - title.get_width()//2, 100))
+        
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_pressed = pygame.mouse.get_pressed()[0]
+        button_rects = []
+        hover_elements = []
+        start_y = screen.get_height()//2 - 50
+        
+        for i, btn in enumerate(buttons):
+            btn_y = start_y + i * 80
+            rect = draw_button(btn["text"], 
+                             screen.get_width()//2 - 90, 
+                             btn_y, 180, 40,
+                             is_clicked=mouse_pressed)
+            button_rects.append(rect)
+            hover_elements.append((btn["lang"], rect))
+        
+        handle_hover_sound(hover_elements, mouse_pos)
+        
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONUP:
+                for i, rect in enumerate(button_rects):
+                    if rect.collidepoint(event.pos):
+                        click_sound.play()
+                        change_language(buttons[i]["lang"])
+                        return
+
+# Game loop
+def main_game_loop():
     global player_x, player_y, bullets, enemies, player_health, score
     clock = pygame.time.Clock()
-    spawn_enemy_timer = 0
-    running = True
-    adjust_difficulty()
+    spawn_counter = 0
+    game_start_time = time.time()
+    
+    try:
+        RPC.update(
+            state=lang_data.get("rpc_playing", "Playing"),
+            details=lang_data.get("rpc_score", "Score: {score} | Version {version}").format(score=score, version=game_version),
+            start=game_start_time,
+            large_image="game",
+            large_text=lang_data.get("rpc_game_status", "Zombie Survival"),
+            buttons=[
+                {"label": lang_data.get("download_button", "Download"), "url": "https://github.com/PistonCube/ProjectZombie/releases"},
+                {"label": lang_data.get("website_button", "Website"), "url": "https://github.com/PistonCube/ProjectZombie/"}
+            ]
+        )
+    except Exception as e:
+        print(f"Error actualizando RPC: {e}")
 
-    player_x = screen_width//2
-    player_y = screen_height - 60
+    player_x = game_data["resolution"]["width"] // 2
+    player_y = game_data["resolution"]["height"] - 60
     player_health = player_max_health
     bullets.clear()
     enemies.clear()
     score = 0
-
+    
+    running = True
     while running:
-        screen.blit(background_game_image, (0, 0))
-        spawn_enemy_timer += 1
-        if spawn_enemy_timer > enemy_spawn_rate:
-            spawn_enemy_timer = 0
-            enemy_x = random.randint(0, screen_width - 50)
-            enemies.append([enemy_x, 0])
-        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
+                pygame.quit()
+                sys.exit()
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    action = pause_menu()
-                    if action == "main_menu":
-                        return "main_menu"
                 if event.key == pygame.K_SPACE:
                     shoot_sound.play()
                     bullets.append([player_x + 22, player_y])
+                if event.key == pygame.K_ESCAPE:
+                    result = pause_menu()
+                    if result == "resume":
+                        continue
+                    elif result == "restart":
+                        return "retry"
+                    elif result == "menu":
+                        return "menu"
             if event.type == pygame.MOUSEBUTTONDOWN:
                 shoot_sound.play()
                 bullets.append([player_x + 22, player_y])
         
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_a] and player_x > 0:
-            player_x -= player_velocity
-        if keys[pygame.K_d] and player_x < screen_width - 50:
-            player_x += player_velocity
-
-        for bullet in bullets[:]:
-            bullet[1] -= bullet_velocity
-            if bullet[1] < 0:
-                bullets.remove(bullet)
-        for bullet in bullets:
-            screen.blit(bullet_image, (bullet[0], bullet[1]))
-
+        player_x += (keys[pygame.K_d] - keys[pygame.K_a]) * player_velocity
+        player_x = max(0, min(screen.get_width() - 50, player_x))
+        
+        bullets = [b for b in bullets if b[1] > 0]
+        for b in bullets: b[1] -= bullet_velocity
+        
+        spawn_counter += 1
+        if spawn_counter >= enemy_spawn_rate:
+            spawn_counter = 0
+            enemies.append([random.randint(0, screen.get_width() - 50), 0])
+        
         for enemy in enemies[:]:
-            if player_x < enemy[0]:
-                enemy[0] -= 1
-            elif player_x > enemy[0]:
-                enemy[0] += 1
+            enemy[0] += 1 if enemy[0] < player_x else -1
             enemy[1] += enemy_velocity
-
-            enemy_rect = pygame.Rect(enemy[0], enemy[1], 50, 50)
-            for bullet in bullets[:]:
-                bullet_rect = pygame.Rect(bullet[0], bullet[1], bullet_image.get_width(), bullet_image.get_height())
-                if enemy_rect.colliderect(bullet_rect):
-                    if enemy in enemies:
-                        enemies.remove(enemy)
-                    if bullet in bullets:
-                        bullets.remove(bullet)
-                    score += 10
-                    break
-
-            player_rect = pygame.Rect(player_x, player_y, 50, 50)
-            if player_rect.colliderect(enemy_rect):
-                damage = damage_levels.get(difficulty, 2)
-                player_health -= damage
-                if enemy in enemies:
-                    enemies.remove(enemy)
+            
+            enemy_rect = pygame.Rect(*enemy, 50, 50)
+            if enemy_rect.colliderect(pygame.Rect(player_x, player_y, 50, 50)):
+                player_health -= enemy_damage
+                enemies.remove(enemy)
                 if player_health <= 0:
-                    running = False
-
+                    update_high_score(score)
+                    return show_dead_screen()
+            
+            for bullet in bullets[:]:
+                if enemy_rect.colliderect(pygame.Rect(*bullet, 5, 10)):
+                    bullets.remove(bullet)
+                    enemies.remove(enemy)
+                    score += 10
+                    try:
+                        RPC.update(details=lang_data.get("rpc_score", "Score: {score} | Version {version}").format(
+                            score=score, version=game_version
+                        ))
+                    except Exception as e:
+                        print(f"Error actualizando RPC: {e}")
+                    break
+        
+        screen.blit(background_game_image, (0, 0))
+        for bullet in bullets:
+            screen.blit(bullet_image, bullet)
         for enemy in enemies:
-            screen.blit(enemy_image, (enemy[0], enemy[1]))
-
+            screen.blit(enemy_image, enemy)
         screen.blit(player_image, (player_x, player_y))
+        
         draw_health_bar(10, 10, player_health, player_max_health)
-        score_text = font_small.render("Score: " + str(score), True, (255, 255, 255))
+        score_text = font_small.render(f"{lang_data.get('score', 'Score')}: {score}", True, (255, 255, 255))
         screen.blit(score_text, (220, 10))
+        
         pygame.display.flip()
         clock.tick(60)
     
     update_high_score(score)
-    if player_health <= 0:
-        return show_dead_screen()
-    pygame.time.delay(1000)
+    return show_dead_screen()
 
+# Main execution
 if __name__ == "__main__":
-    if not game_data.get("has_seen_story", False):
-        def show_story():
-            story_text = [
-                "Bienvenido a Project Zombie.",
-                "En un mundo devastado por hordas de zombies,",
-                "tu misión es sobrevivir y eliminar a la amenaza.",
-                "Recorre las calles, dispara sin piedad, y recupera",
-                "la esperanza perdida de la humanidad.",
-                "",
-                "Pulsa cualquier tecla para continuar..."
+    try:
+        RPC.update(
+            state=lang_data.get("rpc_menu_state", "In main menu"),
+            details=lang_data.get("rpc_version", "Version {version}").format(version=game_version),
+            large_image="main",
+            large_text=lang_data.get("rpc_game_title", "Project Zombie"),
+            buttons=[
+                {"label": lang_data.get("download_button", "Download"), "url": "https://github.com/PistonCube/ProjectZombie/releases"},
+                {"label": lang_data.get("website_button", "Website"), "url": "https://github.com/PistonCube/ProjectZombie/"}
             ]
-            showing = True
-            while showing:
-                screen.fill((0, 0, 0))
-                y_offset = 150
-                for line in story_text:
-                    rendered_line = font.render(line, True, (255, 255, 255))
-                    screen.blit(rendered_line, (screen_width//2 - rendered_line.get_width()//2, y_offset))
-                    y_offset += 40
-                pygame.display.flip()
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
-                    if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
-                        showing = False
-            game_data["has_seen_story"] = True
-            save_game_data(game_data)
+        )
+    except Exception as e:
+        print(f"Error actualizando RPC: {e}")
+
+    if not game_data["has_seen_story"]:
+        show_initial_language_selection()
         show_story()
+        game_data["has_seen_story"] = True
+        save_game_data(game_data)
+    
+    pygame.mixer.music.play(-1)
+    
     while True:
         action = show_main_menu()
-        if action == "start":
-            result = main()
-            if result in ("main_menu", "retry"):
-                continue
+        if action == "play":
+            game_action = show_game_menu()
+            if game_action == "start":
+                try:
+                    game_start_time = time.time()
+                    RPC.update(
+                        state=lang_data.get("rpc_playing", "Playing"),
+                        details=lang_data.get("rpc_score", "Score: {score} | Version {version}").format(score=0, version=game_version),
+                        start=game_start_time,
+                        large_image="game",
+                        large_text=lang_data.get("rpc_game_status", "Zombie Survival"),
+                        buttons=[
+                            {"label": lang_data.get("download_button", "Download"), "url": "https://github.com/PistonCube/ProjectZombie/releases"},
+                            {"label": lang_data.get("website_button", "Website"), "url": "https://github.com/PistonCube/ProjectZombie/"}
+                        ]
+                    )
+                except Exception as e:
+                    print(f"Error actualizando RPC: {e}")
+                
+                result = main_game_loop()
+                
+                try:
+                    RPC.update(
+                        state=lang_data.get("rpc_menu_state", "In main menu"),
+                        details=lang_data.get("rpc_version", "Version {version}").format(version=game_version),
+                        large_image="main",
+                        large_text=lang_data.get("rpc_game_title", "Project Zombie"),
+                        buttons=[
+                            {"label": lang_data.get("download_button", "Download"), "url": "https://github.com/PistonCube/ProjectZombie/releases"},
+                            {"label": lang_data.get("website_button", "Website"), "url": "https://github.com/PistonCube/ProjectZombie/"}
+                        ]
+                    )
+                except Exception as e:
+                    print(f"Error updating RPC: {e}")
+                
+                if result == "retry":
+                    main_game_loop()
+                elif result == "menu":
+                    continue
+        elif action == "config":
+            show_configuration_menu()
+        elif action == "quit":
+            pygame.quit()
+            sys.exit()

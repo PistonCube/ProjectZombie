@@ -1,0 +1,42 @@
+{
+    "title": "Project Zombie",
+    "play_button": "Jugar",
+    "config_button": "Configuración",
+    "quit_button": "Salir",
+    "sound_settings": "Ajustes de Sonido",
+    "music_volume": "Volumen de la Música",
+    "sfx_volume": "Volumen de Efectos",
+    "language_button": "Idioma",
+    "back_button": "Volver",
+    "difficulty_button": "Dificultad: ",
+    "difficulty_easy": "Fácil",
+    "difficulty_medium": "Medio",
+    "difficulty_hard": "Difícil",
+    "select_difficulty": "Seleccionar Dificultad",
+    "start_button": "Comenzar Juego",
+    "resume_button": "Continuar",
+    "restart_button": "Reiniciar",
+    "menu_button": "Menú Principal",
+    "game_over": "Juego Terminado",
+    "final_score": "Puntuación Final",
+    "retry_button": "Reintentar",
+    "score": "Puntuación",
+    "config_title": "Configuración",
+    "paused_title": "Pausa",
+    "continue_button": "Continuar",
+
+    "rpc_playing": "Jugando",
+    "rpc_score": "Puntuación: {score} | Versión {version}",
+    "rpc_game_status": "Supervivencia zombie",
+    "rpc_menu_state": "En el menú principal",
+    "rpc_version": "Versión {version}",
+    "rpc_game_title": "Project Zombie",
+    "download_button": "Descargar",
+    "website_button": "Sitio web",
+    
+    "languages": {
+        "en_us": "Inglés",
+        "es_es": "Español"
+    },
+    "story": "Bienvenido a Project Zombie.\nEn un mundo devastado por hordas de zombies,\ntu misión es sobrevivir y eliminar a la amenaza.\nRecorre las calles, dispara sin piedad, y recupera\nla esperanza perdida de la humanidad."
+}

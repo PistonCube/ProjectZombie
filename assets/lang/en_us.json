@@ -1,0 +1,42 @@
+{
+    "title": "Project Zombie",
+    "play_button": "Play",
+    "config_button": "Settings",
+    "quit_button": "Quit",
+    "sound_settings": "Sound Settings",
+    "music_volume": "Music Volume",
+    "sfx_volume": "SFX Volume",
+    "language_button": "Language",
+    "back_button": "Back",
+    "difficulty_button": "Difficulty: ",
+    "difficulty_easy": "Easy",
+    "difficulty_medium": "Medium",
+    "difficulty_hard": "Hard",
+    "select_difficulty": "Select Difficulty",
+    "start_button": "Start Game",
+    "resume_button": "Resume",
+    "restart_button": "Restart",
+    "menu_button": "Main Menu",
+    "game_over": "Game Over",
+    "final_score": "Final Score",
+    "retry_button": "Retry",
+    "score": "Score",
+    "config_title": "Settings",
+    "paused_title": "Paused",
+    "continue_button": "Continue",
+
+    "rpc_playing": "Playing",
+    "rpc_score": "Score: {score} | Version {version}",
+    "rpc_game_status": "Zombie Survival",
+    "rpc_menu_state": "In main menu",
+    "rpc_version": "Version {version}",
+    "rpc_game_title": "Project Zombie",
+    "download_button": "Download",
+    "website_button": "Website",
+
+    "languages": {
+        "en_us": "English",
+        "es_es": "Spanish"
+    },
+    "story": "Welcome to Project Zombie.\nIn a world devastated by hordes of zombies,\nyour mission is to survive and eliminate the threat.\nRoam the streets, shoot without mercy, and restore\nhumanity's lost hope."
+}
